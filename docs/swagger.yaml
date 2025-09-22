@@ -1,0 +1,867 @@
+basePath: /
+definitions:
+  models.ChangePasswordRequest:
+    properties:
+      email:
+        type: string
+      new_password:
+        minLength: 6
+        type: string
+      old_password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - new_password
+    - old_password
+    type: object
+  models.CreateOrderRequest:
+    properties:
+      cinema_id:
+        type: integer
+      now_showing_id:
+        type: integer
+      payment_id:
+        type: integer
+      price:
+        minimum: 0
+        type: number
+      seats_map:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      users_id:
+        type: integer
+    required:
+    - now_showing_id
+    - payment_id
+    - price
+    - seats_map
+    type: object
+  models.CreateOrderResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      price:
+        type: number
+      qr_code:
+        type: string
+      seats_map:
+        items:
+          type: string
+        type: array
+      ticket_id:
+        type: integer
+      users_id:
+        type: integer
+    type: object
+  models.ErrorResponse:
+    properties:
+      error:
+        example: error message
+        type: string
+      status:
+        example: 500
+        type: integer
+      success:
+        example: false
+        type: boolean
+    type: object
+  models.LogoutSuccessResponse:
+    properties:
+      message:
+        example: Logout berhasil. Token telah diblacklist.
+        type: string
+      success:
+        example: true
+        type: boolean
+      user:
+        $ref: '#/definitions/models.LogoutUserInfo'
+    type: object
+  models.LogoutUserInfo:
+    properties:
+      id:
+        example: 1
+        type: integer
+      role:
+        example: user
+        type: string
+    type: object
+  models.Profile:
+    properties:
+      created_at:
+        example: "2025-09-14T12:00:00Z"
+        type: string
+      first_name:
+        example: John
+        type: string
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: Doe
+        type: string
+      phone_number:
+        example: "+628123456789"
+        type: string
+      profile_picture:
+        example: profile_123.png
+        type: string
+      updated_at:
+        example: "2025-09-14T12:30:00Z"
+        type: string
+    type: object
+  models.UserAuth:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 4
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.UserProfileResponse:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      first_name:
+        example: John
+        type: string
+      id:
+        example: 1
+        type: integer
+      last_name:
+        example: Doe
+        type: string
+      phone_number:
+        example: "+628123456789"
+        type: string
+      poin:
+        example: 120
+        type: integer
+      profile_picture:
+        example: profile_123.png
+        type: string
+      role:
+        example: user
+        type: string
+    type: object
+host: localhost:9001
+info:
+  contact: {}
+  title: Backend Golang Tickitz App
+  version: "1.0"
+paths:
+  /admin/movies:
+    get:
+      description: Semua data Movie untuk admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Movies (Admin)
+      tags:
+      - Admin-Movies
+  /admin/movies/{movieId}:
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Update data film berdasarkan ID dengan upload gambar opsional
+      parameters:
+      - description: Movie ID
+        in: path
+        name: movieId
+        required: true
+        type: integer
+      - description: Judul film
+        in: formData
+        name: title
+        type: string
+      - description: Sinopsis film
+        in: formData
+        name: synopsis
+        type: string
+      - description: Durasi film dalam menit
+        in: formData
+        name: duration_minutes
+        type: integer
+      - description: Tanggal rilis (YYYY-MM-DD)
+        in: formData
+        name: release_date
+        type: string
+      - description: ID direktur
+        in: formData
+        name: directors_id
+        type: integer
+      - description: Rating film
+        in: formData
+        name: rating
+        type: number
+      - description: File gambar poster (opsional)
+        in: formData
+        name: poster_image
+        type: file
+      - description: File gambar background (opsional)
+        in: formData
+        name: bg_path
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Movie (Admin)
+      tags:
+      - Admin-Movies
+  /admin/movies/add:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Tambah data movie baru dengan upload gambar
+      parameters:
+      - description: Judul film
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: Sinopsis film
+        in: formData
+        name: synopsis
+        required: true
+        type: string
+      - description: Durasi film dalam menit
+        in: formData
+        name: duration_minutes
+        required: true
+        type: integer
+      - description: Tanggal rilis (YYYY-MM-DD)
+        in: formData
+        name: release_date
+        required: true
+        type: string
+      - description: ID direktur
+        in: formData
+        name: directors_id
+        required: true
+        type: integer
+      - description: Rating film
+        in: formData
+        name: rating
+        type: number
+      - description: File gambar poster
+        in: formData
+        name: poster_image
+        required: true
+        type: file
+      - description: File gambar background
+        in: formData
+        name: bg_path
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tambah Movie (Admin)
+      tags:
+      - Admin-Movies
+  /admin/movies/delete/{movieId}:
+    delete:
+      description: Tandai movie sebagai deleted (soft delete) dan isi deleted_at timestamp
+      parameters:
+      - description: Movie ID
+        in: path
+        name: movieId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Soft delete movie (Admin)
+      tags:
+      - Admin-Movies
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login dengan email dan password. Jika sukses, akan mengembalikan
+        JWT Token untuk autentikasi.
+      parameters:
+      - description: Login Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserAuth'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil login, kembalikan token
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request - Email/Password salah atau input tidak valid
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login User
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user dengan menambahkan token ke blacklist. Token tidak
+        dapat digunakan lagi.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout berhasil dan token di-blacklist
+          schema:
+            $ref: '#/definitions/models.LogoutSuccessResponse'
+        "400":
+          description: Bad Request - Format token tidak valid
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized - Token tidak ditemukan
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Secure Logout User
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Daftar User baru dengan email dan password. Password akan di-hash
+        sebelum disimpan.
+      parameters:
+      - description: Register Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserAuth'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User berhasil didaftarkan
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request - Input tidak valid (email, password)
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict - Email sudah terdaftar
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register User
+      tags:
+      - Auth
+  /movies:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil semua data movie untuk general user. Endpoint ini tidak
+        memerlukan otorisasi.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil mengambil semua data movies dengan total count
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Tidak ada film yang ditemukan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get All Movies
+      tags:
+      - Movies
+  /movies/{movie_id}:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil detail film berdasarkan ID
+      parameters:
+      - description: ID Film
+        in: path
+        name: movie_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil mengambil detail film
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request - movie_id tidak valid
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Film tidak ditemukan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Movie Detail
+      tags:
+      - Movies
+  /movies/filter:
+    get:
+      consumes:
+      - application/json
+      description: 'Mengambil daftar film dengan filter opsional: judul, genre, dan
+        pagination.'
+      parameters:
+      - description: Filter berdasarkan judul (opsional)
+        in: query
+        name: title
+        type: string
+      - description: Filter berdasarkan genre, pisahkan dengan koma jika lebih dari
+          satu (opsional)
+        in: query
+        name: genre
+        type: string
+      - description: 'Halaman yang ingin diambil (default: 1)'
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil mengambil daftar film
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Tidak ada film yang ditemukan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Movies With Filter
+      tags:
+      - Movies
+  /movies/popular:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar semua film yang sedang populer berdasarkan rating
+        atau jumlah penonton
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil mengambil daftar popular movies
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Tidak ada film popular yang ditemukan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Popular Movies
+      tags:
+      - Movies
+  /movies/schedule/{movie_id}:
+    get:
+      description: Mengambil semua data jadwal film berdasarkan movie ID
+      parameters:
+      - description: ID Film
+        in: path
+        name: movie_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID film tidak valid
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Tidak ada jadwal untuk film tersebut
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get schedules by movie ID
+      tags:
+      - Movies
+  /movies/upcoming:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar semua film yang akan segera rilis atau upcoming
+        movies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Berhasil mengambil daftar upcoming movies
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Tidak ada film upcoming yang ditemukan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Upcoming Movies
+      tags:
+      - Movies
+  /orders:
+    post:
+      consumes:
+      - application/json
+      description: Membuat order baru beserta ticket, update showing_seats, dan relasi
+        ke cinema
+      parameters:
+      - description: Order Request
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Order berhasil dibuat
+          schema:
+            $ref: '#/definitions/models.CreateOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create new order
+      tags:
+      - Orders
+  /orders/history:
+    get:
+      consumes:
+      - application/json
+      description: Ambil riwayat pesanan berdasarkan user yang sedang login (dari
+        JWT)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success response with order history
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized, token tidak valid
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Tidak ada riwayat pesanan
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user order history
+      tags:
+      - Orders
+  /orders/seats/{now_showing_id}:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil daftar kursi berdasarkan `now_showing_id`.
+      parameters:
+      - description: ID Now Showing
+        in: path
+        name: now_showing_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mendapatkan semua kursi
+      tags:
+      - Seats
+  /profile:
+    get:
+      description: Ambil data profil user dari JWT
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserProfileResponse'
+      security:
+      - BearerAuth: []
+      summary: Get My Profile
+      tags:
+      - Profile
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Update data profil user (dengan upload gambar opsional)
+      parameters:
+      - description: First Name
+        in: formData
+        name: first_name
+        required: true
+        type: string
+      - description: Last Name
+        in: formData
+        name: last_name
+        required: true
+        type: string
+      - description: Phone Number
+        in: formData
+        name: phone_number
+        required: true
+        type: string
+      - description: Profile Picture
+        in: formData
+        name: image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Profile'
+      security:
+      - BearerAuth: []
+      summary: Update User Profile
+      tags:
+      - Profile
+  /profile/change-password:
+    patch:
+      consumes:
+      - application/json
+      description: Ubah password user
+      parameters:
+      - description: Password Data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password berhasil diubah
+          schema:
+            type: string
+      summary: Change Password
+      tags:
+      - Profile
+securityDefinitions:
+  BearerAuth:
+    description: 'Masukkan format: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

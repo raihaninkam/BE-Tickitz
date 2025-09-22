@@ -1,0 +1,35 @@
+name: Build and publish Docker images to GHCR
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  # ================= FRONTEND =================
+  frontend:
+    name: Build & Publish Frontend Image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Build and publish Docker image (frontend)
+        uses: macbre/push-to-ghcr@master
+        with:
+          image_name: ${{ github.repository }}-frontend
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          dockerfile: ./frontend/Dockerfile
+          context: ./frontend

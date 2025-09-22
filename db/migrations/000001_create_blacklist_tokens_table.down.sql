@@ -1,0 +1,1 @@
+DROP TABLE public.blacklist_tokens
