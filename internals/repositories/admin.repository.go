@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/raihaninkam/tickitz/internals/models"
 )
@@ -22,6 +23,12 @@ func NewMovieAdmin(db *pgxpool.Pool) *MovieAdmin {
 
 // CREATE
 func (ma *MovieAdmin) AddMovie(ctx context.Context, req models.MovieAdmin) (*models.MovieEdit, error) {
+	// Fix sequence first
+	_, err := ma.Db.Exec(ctx, "SELECT setval('movies_id_seq', COALESCE((SELECT MAX(id) FROM movies), 1), false)")
+	if err != nil {
+		return nil, err
+	}
+
 	sql := `
 		INSERT INTO movies (title, synopsis, duration_minutes, release_date, poster_image, directors_id, rating, bg_path, is_deleted)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false)
@@ -29,7 +36,7 @@ func (ma *MovieAdmin) AddMovie(ctx context.Context, req models.MovieAdmin) (*mod
 	`
 
 	var movie models.MovieEdit
-	err := ma.Db.QueryRow(ctx, sql,
+	err = ma.Db.QueryRow(ctx, sql,
 		req.Title,
 		req.Synopsis,
 		req.DurationMinutes,
@@ -107,6 +114,16 @@ func (ma *MovieAdmin) GetAllMovies(ctx context.Context) ([]models.MovieAdmin, er
 
 // UPDATE (hanya bisa update kalau belum dihapus)
 func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.MovieUpdateRequest) (*models.MovieAdmin, error) {
+	tx, err := ma.Db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
 	setClauses := []string{}
 	args := []interface{}{}
 	argID := 1
@@ -150,7 +167,6 @@ func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.M
 		args = append(args, *req.Rating)
 		argID++
 	}
-	// Add the missing BgPath handling
 	if req.BgPath != nil {
 		setClauses = append(setClauses, fmt.Sprintf("bg_path=$%d", argID))
 		args = append(args, *req.BgPath)
@@ -161,10 +177,10 @@ func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.M
 		return nil, errors.New("no fields to update")
 	}
 
-	// First, check if movie exists and is not deleted
+	// Check if movie exists (pakai tx)
 	var exists bool
 	checkQuery := "SELECT EXISTS(SELECT 1 FROM movies WHERE id=$1 AND deleted_at IS NULL)"
-	err := ma.Db.QueryRow(ctx, checkQuery, movieId).Scan(&exists)
+	err = tx.QueryRow(ctx, checkQuery, movieId).Scan(&exists)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %v", err)
 	}
@@ -172,7 +188,7 @@ func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.M
 		return nil, errors.New("movie not found or already deleted")
 	}
 
-	// Proceed with update
+	// Update query
 	query := fmt.Sprintf(`
         UPDATE movies 
         SET %s, updated_at = NOW() 
@@ -182,7 +198,7 @@ func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.M
 
 	args = append(args, movieId)
 
-	row := ma.Db.QueryRow(ctx, query, args...)
+	row := tx.QueryRow(ctx, query, args...)
 
 	var movie models.MovieAdmin
 	err = row.Scan(
@@ -201,6 +217,10 @@ func (ma *MovieAdmin) UpdateMovie(ctx context.Context, movieId int, req models.M
 			return nil, errors.New("movie not found or already deleted")
 		}
 		return nil, fmt.Errorf("database error: %v", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
 	return &movie, nil

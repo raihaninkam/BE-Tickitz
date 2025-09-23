@@ -37,3 +37,12 @@ func SetToCache[T any](ctx context.Context, rdb *redis.Client, key string, value
 		log.Println("Marshal Error.\nCause:", err.Error())
 	}
 }
+
+func InvalidateCache(ctx context.Context, rdb *redis.Client, keys ...string) error {
+	for _, key := range keys {
+		if err := rdb.Del(ctx, key).Err(); err != nil {
+			return err
+		}
+	}
+	return nil
+}

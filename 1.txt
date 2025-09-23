@@ -1,7 +1,4 @@
-1. cinemaid masuk order
-2. file upload handling
-3. response (body)
-4. genre
-6. invalidasi
-7. db transaction
-8. upcoming jika sudah sehari di invalidate.
+-. cinemaid masuk order
+-. genre
+-. invalidasi
+-. db transaction

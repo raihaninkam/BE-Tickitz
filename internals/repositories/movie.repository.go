@@ -231,20 +231,7 @@ func NewMovieFilter(db *pgxpool.Pool) *MovieFilter {
 }
 
 func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, genres []string, offset, limit int) ([]models.MovieFilter, int, error) {
-	// Base query untuk data
-	sql := `
-        SELECT 
-            m.id, m.title, m.synopsis, m.duration_minutes, m.release_date, 
-            m.poster_image, m.directors_id, m.rating, m.bg_path, 
-            d.name as director_name, 
-            STRING_AGG(DISTINCT g.name, ', ') as genres
-        FROM movies m 
-        JOIN directors d ON m.directors_id = d.id 
-        LEFT JOIN movies_genre mg ON m.id = mg.movies_id 
-        LEFT JOIN genres g ON mg.genres_id = g.id
-    `
-
-	// Build WHERE conditions
+	// Build WHERE conditions first
 	var whereConditions []string
 	var args []interface{}
 	argIndex := 1
@@ -255,6 +242,7 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 		argIndex++
 	}
 
+	// For genre filtering, we need to use subquery approach
 	if len(genres) > 0 {
 		genrePlaceholders := make([]string, len(genres))
 		for i, genre := range genres {
@@ -262,18 +250,45 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 			args = append(args, genre)
 			argIndex++
 		}
-		whereConditions = append(whereConditions, fmt.Sprintf("g.name IN (%s)", strings.Join(genrePlaceholders, ",")))
+		whereConditions = append(whereConditions, fmt.Sprintf(`m.id IN (
+			SELECT DISTINCT m2.id 
+			FROM movies m2
+			JOIN movies_genre mg2 ON m2.id = mg2.movies_id
+			JOIN genres g2 ON mg2.genres_id = g2.id
+			WHERE g2.name IN (%s)
+		)`, strings.Join(genrePlaceholders, ",")))
 	}
 
+	// Base query untuk data
+	sql := `
+		SELECT 
+			m.id, 
+			m.title, 
+			m.synopsis, 
+			m.duration_minutes, 
+			m.release_date, 
+			m.poster_image, 
+			m.directors_id, 
+			m.rating, 
+			m.bg_path, 
+			d.name as director_name, 
+			STRING_AGG(DISTINCT g.name, ', ') as genres
+		FROM movies m 
+		JOIN directors d ON m.directors_id = d.id 
+		LEFT JOIN movies_genre mg ON m.id = mg.movies_id 
+		LEFT JOIN genres g ON mg.genres_id = g.id`
+
+	// Add WHERE clause if there are conditions
 	if len(whereConditions) > 0 {
 		sql += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
+	// Add GROUP BY, ORDER BY, LIMIT, OFFSET
 	sql += fmt.Sprintf(`
-        GROUP BY m.id, d.name 
-        ORDER BY m.release_date DESC 
-        LIMIT $%d OFFSET $%d
-    `, argIndex, argIndex+1)
+		GROUP BY m.id, m.title, m.synopsis, m.duration_minutes, m.release_date, 
+				 m.poster_image, m.directors_id, m.rating, m.bg_path, d.name
+		ORDER BY m.release_date DESC 
+		LIMIT $%d OFFSET $%d`, argIndex, argIndex+1)
 
 	args = append(args, limit, offset)
 
@@ -307,11 +322,12 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 
 	// Query total count (tanpa limit & offset)
 	countSql := `
-        SELECT COUNT(DISTINCT m.id)
-        FROM movies m
-        LEFT JOIN movies_genre mg ON m.id = mg.movies_id
-        LEFT JOIN genres g ON mg.genres_id = g.id
-    `
+		SELECT COUNT(DISTINCT m.id)
+		FROM movies m
+		JOIN directors d ON m.directors_id = d.id
+		LEFT JOIN movies_genre mg ON m.id = mg.movies_id
+		LEFT JOIN genres g ON mg.genres_id = g.id`
+
 	var countArgs []interface{}
 	countArgIndex := 1
 	var countWhere []string
@@ -321,15 +337,23 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 		countArgs = append(countArgs, "%"+title+"%")
 		countArgIndex++
 	}
+
 	if len(genres) > 0 {
 		genrePlaceholders := make([]string, len(genres))
-		for i := range genres {
+		for i, genre := range genres {
 			genrePlaceholders[i] = fmt.Sprintf("$%d", countArgIndex)
-			countArgs = append(countArgs, genres[i])
+			countArgs = append(countArgs, genre)
 			countArgIndex++
 		}
-		countWhere = append(countWhere, fmt.Sprintf("g.name IN (%s)", strings.Join(genrePlaceholders, ",")))
+		countWhere = append(countWhere, fmt.Sprintf(`m.id IN (
+			SELECT DISTINCT m2.id 
+			FROM movies m2
+			JOIN movies_genre mg2 ON m2.id = mg2.movies_id
+			JOIN genres g2 ON mg2.genres_id = g2.id
+			WHERE g2.name IN (%s)
+		)`, strings.Join(genrePlaceholders, ",")))
 	}
+
 	if len(countWhere) > 0 {
 		countSql += " WHERE " + strings.Join(countWhere, " AND ")
 	}
