@@ -10,3 +10,4 @@ WORKDIR /app
 COPY --from=build /app/tickitz .
 EXPOSE 8080
 CMD ["./tickitz"]
+
