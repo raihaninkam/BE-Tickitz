@@ -46,5 +46,5 @@ func main() {
 
 	router.Static("/public", "./public")
 
-	router.Run("localhost:9001")
+	router.Run(":9001")
 }
