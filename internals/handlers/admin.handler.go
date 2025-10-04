@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,26 +23,30 @@ func NewMovieAdminHandler(mar *repositories.MovieAdmin) *MovieAdminHandler {
 	return &MovieAdminHandler{mar: mar}
 }
 
-// ======================= CREATE =======================
-
 // AddMovie godoc
 // @Summary     Tambah Movie (Admin)
-// @Description Tambah data movie baru dengan upload gambar
+// @Description Tambah data movie baru dengan upload gambar dan jadwal tayang
 // @Tags        Admin-Movies
 // @Security    BearerAuth
 // @Accept      multipart/form-data
 // @Produce     json
-// @Param       title            formData string true  "Judul film"
-// @Param       synopsis         formData string true  "Sinopsis film"
-// @Param       duration_minutes formData int    true  "Durasi film dalam menit"
-// @Param       release_date     formData string true  "Tanggal rilis (YYYY-MM-DD)"
-// @Param       directors_id     formData int    true  "ID direktur"
-// @Param       rating           formData number false "Rating film"
-// @Param       poster_image     formData file   true  "File gambar poster"
-// @Param       bg_path          formData file   false "File gambar background"
-// @Success     201 {object} map[string]interface{}
-// @Failure     400 {object} map[string]string
-// @Failure     500 {object} map[string]string
+// @Param       title                    formData string   true  "Judul film"
+// @Param       synopsis                 formData string   true  "Sinopsis film"
+// @Param       duration_minutes         formData int      true  "Durasi film dalam menit"
+// @Param       release_date             formData string   true  "Tanggal rilis (YYYY-MM-DD)"
+// @Param       directors_id             formData int      true  "ID direktur"
+// @Param       rating                   formData number   false "Rating film"
+// @Param       genres_id                formData string   true  "Array ID genre (comma-separated, e.g: 1,2,3)"
+// @Param       casts_id                 formData string   true  "Array ID cast (comma-separated, e.g: 1,2,3)"
+// @Param       showtime_dates[]         formData []string false "Array tanggal showtime (YYYY-MM-DD)" collectionFormat(multi)
+// @Param       showtime_times[]         formData []string false "Array waktu showtime (HH:MM)" collectionFormat(multi)
+// @Param       showtime_location_ids[]  formData []int    false "Array location ID untuk setiap showtime" collectionFormat(multi)
+// @Param       showtime_cinema_ids[]    formData []int    false "Array cinema ID untuk setiap showtime" collectionFormat(multi)
+// @Param       poster_image             formData file     true  "File gambar poster"
+// @Param       bg_path                  formData file     false "File gambar background"
+// @Success     201 {object} map[string]interface{} "{"success": true, "message": "Film berhasil ditambahkan", "data": {...}}"
+// @Failure     400 {object} map[string]string "{"success": false, "error": "error message"}"
+// @Failure     500 {object} map[string]string "{"success": false, "error": "internal server error"}"
 // @Router      /admin/movies/add [post]
 func (h *MovieAdminHandler) AddMovie(ctx *gin.Context) {
 	// Parse form data
@@ -50,12 +56,14 @@ func (h *MovieAdminHandler) AddMovie(ctx *gin.Context) {
 	releaseDateStr := ctx.PostForm("release_date")
 	directorsIdStr := ctx.PostForm("directors_id")
 	ratingStr := ctx.PostForm("rating")
+	genresIdStr := ctx.PostForm("genres_id")
+	castsIdStr := ctx.PostForm("casts_id")
 
 	// Validate required fields
 	if title == "" || synopsis == "" || durationStr == "" || releaseDateStr == "" || directorsIdStr == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Semua field wajib diisi kecuali rating",
+			"error":   "Semua field wajib diisi kecuali rating dan showtimes",
 		})
 		return
 	}
@@ -74,7 +82,7 @@ func (h *MovieAdminHandler) AddMovie(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Directors ID harus berupa angka",
+			"error":   "Directors ID Harus Berupa Angka",
 		})
 		return
 	}
@@ -92,12 +100,119 @@ func (h *MovieAdminHandler) AddMovie(ctx *gin.Context) {
 		rating = &ratingVal
 	}
 
+	// Parse genres_id (comma-separated string to []int)
+	var genresId []int
+	if genresIdStr != "" {
+		genresStrSlice := strings.Split(genresIdStr, ",")
+		for _, gStr := range genresStrSlice {
+			gStr = strings.TrimSpace(gStr)
+			if gStr != "" {
+				gId, err := strconv.Atoi(gStr)
+				if err != nil {
+					ctx.JSON(http.StatusBadRequest, gin.H{
+						"success": false,
+						"error":   "Genres ID harus berupa angka yang dipisahkan koma",
+					})
+					return
+				}
+				genresId = append(genresId, gId)
+			}
+		}
+	}
+
+	// Parse casts_id (comma-separated string to []int)
+	var castsId []int
+	if castsIdStr != "" {
+		castsStrSlice := strings.Split(castsIdStr, ",")
+		for _, cStr := range castsStrSlice {
+			cStr = strings.TrimSpace(cStr)
+			if cStr != "" {
+				cId, err := strconv.Atoi(cStr)
+				if err != nil {
+					ctx.JSON(http.StatusBadRequest, gin.H{
+						"success": false,
+						"error":   "Casts ID harus berupa angka yang dipisahkan koma",
+					})
+					return
+				}
+				castsId = append(castsId, cId)
+			}
+		}
+	}
+
+	// Parse showtimes dari form fields terpisah
+	var showtimes []models.Showtime
+
+	// Get arrays dari form
+	dates := ctx.PostFormArray("showtime_dates[]")
+	times := ctx.PostFormArray("showtime_times[]")
+	locationIdsStr := ctx.PostFormArray("showtime_location_ids[]")
+	cinemaIdsStr := ctx.PostFormArray("showtime_cinema_ids[]")
+
+	// Jika ada showtime data, validasi dan parse
+	if len(dates) > 0 || len(times) > 0 || len(locationIdsStr) > 0 || len(cinemaIdsStr) > 0 {
+		// Validasi jumlah array sama
+		if len(dates) != len(times) || len(dates) != len(locationIdsStr) || len(dates) != len(cinemaIdsStr) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "Jumlah showtime date, time, location, dan cinema harus sama",
+			})
+			return
+		}
+
+		// Build showtimes array
+		for i := 0; i < len(dates); i++ {
+			locationId, err := strconv.Atoi(locationIdsStr[i])
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   fmt.Sprintf("Location ID showtime ke-%d harus berupa angka", i+1),
+				})
+				return
+			}
+
+			cinemaId, err := strconv.Atoi(cinemaIdsStr[i])
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   fmt.Sprintf("Cinema ID showtime ke-%d harus berupa angka", i+1),
+				})
+				return
+			}
+
+			// Validasi format date (YYYY-MM-DD)
+			if _, err := time.Parse("2006-01-02", dates[i]); err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   fmt.Sprintf("Format date showtime ke-%d harus YYYY-MM-DD", i+1),
+				})
+				return
+			}
+
+			// Validasi format time (HH:MM)
+			if _, err := time.Parse("15:04", times[i]); err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   fmt.Sprintf("Format time showtime ke-%d harus HH:MM", i+1),
+				})
+				return
+			}
+
+			showtimes = append(showtimes, models.Showtime{
+				Date:       dates[i],
+				Time:       times[i],
+				LocationId: locationId,
+				CinemasId:  cinemaId,
+			})
+		}
+	}
+
 	// Parse release date
 	releaseDate, err := time.Parse("2006-01-02", releaseDateStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "Format tanggal harus YYYY-MM-DD",
+			"error":   "Format tanggal release harus YYYY-MM-DD",
 		})
 		return
 	}
@@ -144,6 +259,9 @@ func (h *MovieAdminHandler) AddMovie(ctx *gin.Context) {
 		DirectorsId:     directorsId,
 		Rating:          rating,
 		BgPath:          bgPath,
+		GenresId:        genresId,
+		CastsId:         castsId,
+		Showtimes:       showtimes,
 	})
 	if err != nil {
 		// Clean up uploaded files if database operation fails
@@ -207,8 +325,8 @@ func (h *MovieAdminHandler) GetAllMovies(ctx *gin.Context) {
 // ======================= UPDATE =======================
 
 // UpdateMovie godoc
-// @Summary     Update Movie (Admin)
-// @Description Update data film berdasarkan ID dengan upload gambar opsional
+// @Summary     Update Movie Comprehensive (Admin)
+// @Description Update data film secara komprehensif berdasarkan ID dengan upload gambar opsional
 // @Tags        Admin-Movies
 // @Security    BearerAuth
 // @Accept      multipart/form-data
@@ -219,7 +337,9 @@ func (h *MovieAdminHandler) GetAllMovies(ctx *gin.Context) {
 // @Param       duration_minutes formData int    false "Durasi film dalam menit"
 // @Param       release_date     formData string false "Tanggal rilis (YYYY-MM-DD)"
 // @Param       directors_id     formData int    false "ID direktur"
-// @Param       rating           formData number false "Rating film"
+// @Param       rating           formData string false "Rating film"
+// @Param       genres_id        formData []int  false "Array ID genre"
+// @Param       casts_id         formData []int  false "Array ID cast"
 // @Param       poster_image     formData file   false "File gambar poster (opsional)"
 // @Param       bg_path          formData file   false "File gambar background (opsional)"
 // @Success     200 {object} map[string]interface{}
@@ -240,7 +360,7 @@ func (h *MovieAdminHandler) UpdateMovie(ctx *gin.Context) {
 	}
 
 	// Parse form data
-	var req models.MovieUpdateRequest
+	var req models.MovieUpdateComprehensiveRequest
 
 	// Handle text fields
 	if title := ctx.PostForm("title"); title != "" {
@@ -264,7 +384,15 @@ func (h *MovieAdminHandler) UpdateMovie(ctx *gin.Context) {
 	}
 
 	if releaseDateStr := ctx.PostForm("release_date"); releaseDateStr != "" {
-		req.ReleaseDate = &releaseDateStr
+		releaseDate, err := time.Parse("2006-01-02", releaseDateStr)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "Format tanggal tidak valid, gunakan YYYY-MM-DD",
+			})
+			return
+		}
+		req.ReleaseDate = &releaseDate
 	}
 
 	if directorsIdStr := ctx.PostForm("directors_id"); directorsIdStr != "" {
@@ -280,15 +408,55 @@ func (h *MovieAdminHandler) UpdateMovie(ctx *gin.Context) {
 	}
 
 	if ratingStr := ctx.PostForm("rating"); ratingStr != "" {
-		rating, err := strconv.ParseFloat(ratingStr, 64)
-		if err != nil {
+		req.Rating = &ratingStr
+	}
+
+	// Handle array fields (genres_id dan casts_id)
+	if genresStr := ctx.PostForm("genres_id"); genresStr != "" {
+		var genresId []int
+		genresArray := strings.Split(genresStr, ",")
+		for _, genreStr := range genresArray {
+			genreId, err := strconv.Atoi(strings.TrimSpace(genreStr))
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   "Format genres_id tidak valid",
+				})
+				return
+			}
+			genresId = append(genresId, genreId)
+		}
+		req.GenresId = genresId
+	}
+
+	if castsStr := ctx.PostForm("casts_id"); castsStr != "" {
+		var castsId []int
+		castsArray := strings.Split(castsStr, ",")
+		for _, castStr := range castsArray {
+			castId, err := strconv.Atoi(strings.TrimSpace(castStr))
+			if err != nil {
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   "Format casts_id tidak valid",
+				})
+				return
+			}
+			castsId = append(castsId, castId)
+		}
+		req.CastsId = castsId
+	}
+
+	// Handle showtimes (jika ada)
+	if showtimesJSON := ctx.PostForm("showtimes"); showtimesJSON != "" {
+		var showtimes []models.Showtime
+		if err := json.Unmarshal([]byte(showtimesJSON), &showtimes); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
-				"error":   "Rating harus berupa angka",
+				"error":   "Format showtimes tidak valid",
 			})
 			return
 		}
-		req.Rating = &rating
+		req.Showtimes = showtimes
 	}
 
 	// File upload configuration
@@ -332,8 +500,8 @@ func (h *MovieAdminHandler) UpdateMovie(ctx *gin.Context) {
 		uploadedFiles = append(uploadedFiles, bgPath)
 	}
 
-	// Call repository
-	movie, err := h.mar.UpdateMovie(ctx.Request.Context(), movieId, req)
+	// Call repository - gunakan fungsi comprehensive update
+	movie, err := h.mar.UpdateMovieComprehensive(ctx.Request.Context(), movieId, req)
 	if err != nil {
 		// Clean up uploaded files if database operation fails
 		for _, file := range uploadedFiles {
@@ -370,7 +538,7 @@ func (h *MovieAdminHandler) UpdateMovie(ctx *gin.Context) {
 
 // ======================= HELPER FUNCTIONS =======================
 
-func (h *MovieAdminHandler) parseAddMovieForm(ctx *gin.Context) (*models.MovieCreateFormRequest, error) {
+func (h *MovieAdminHandler) ParseAddMovieForm(ctx *gin.Context) (*models.MovieCreateFormRequest, error) {
 	title := ctx.PostForm("title")
 	synopsis := ctx.PostForm("synopsis")
 	durationStr := ctx.PostForm("duration_minutes")
@@ -412,49 +580,6 @@ func (h *MovieAdminHandler) parseAddMovieForm(ctx *gin.Context) (*models.MovieCr
 		DirectorsId:     directorsId,
 		Rating:          rating,
 	}, nil
-}
-
-func (h *MovieAdminHandler) parseUpdateMovieForm(ctx *gin.Context) (models.MovieUpdateRequest, error) {
-	var req models.MovieUpdateRequest
-
-	// Handle optional fields
-	if title := ctx.PostForm("title"); title != "" {
-		req.Title = &title
-	}
-
-	if synopsis := ctx.PostForm("synopsis"); synopsis != "" {
-		req.Synopsis = &synopsis
-	}
-
-	if durationStr := ctx.PostForm("duration_minutes"); durationStr != "" {
-		duration, err := strconv.Atoi(durationStr)
-		if err != nil {
-			return req, fmt.Errorf("duration harus berupa angka")
-		}
-		req.DurationMinutes = &duration
-	}
-
-	if releaseDateStr := ctx.PostForm("release_date"); releaseDateStr != "" {
-		req.ReleaseDate = &releaseDateStr
-	}
-
-	if directorsIdStr := ctx.PostForm("directors_id"); directorsIdStr != "" {
-		directorsId, err := strconv.Atoi(directorsIdStr)
-		if err != nil {
-			return req, fmt.Errorf("directors ID harus berupa angka")
-		}
-		req.DirectorsId = &directorsId
-	}
-
-	if ratingStr := ctx.PostForm("rating"); ratingStr != "" {
-		rating, err := strconv.ParseFloat(ratingStr, 64)
-		if err != nil {
-			return req, fmt.Errorf("rating harus berupa angka")
-		}
-		req.Rating = &rating
-	}
-
-	return req, nil
 }
 
 // ======================= DELETE =======================

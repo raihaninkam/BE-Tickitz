@@ -6,14 +6,15 @@ import (
 	"github.com/raihaninkam/tickitz/internals/handlers"
 	"github.com/raihaninkam/tickitz/internals/middlewares"
 	"github.com/raihaninkam/tickitz/internals/repositories"
+	"github.com/redis/go-redis/v9"
 )
 
-func InitAdminMovieRouter(router *gin.Engine, db *pgxpool.Pool) {
+func InitAdminMovieRouter(router *gin.Engine, db *pgxpool.Pool, rdb *redis.Client) {
 	adminMovieRouter := router.Group("/admin")
 
 	authRepo := repositories.NewAuthRepository(db)
 
-	movieRepo := repositories.NewMovieAdmin(db)
+	movieRepo := repositories.NewMovieAdmin(db, rdb)
 	movieHandler := handlers.NewMovieAdminHandler(movieRepo)
 
 	// CREATE
