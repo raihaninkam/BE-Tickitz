@@ -77,9 +77,11 @@ func UploadImageFile(ctx *gin.Context, fieldName, subDir string, config FileUplo
 		return "", fmt.Errorf("failed to save file: %v", err)
 	}
 
-	// Return relative path
-	relativePath := filepath.Join(subDir, filename)
+	// Return relative path for URL (always forward slash `/`)
+	relativePath := fmt.Sprintf("/images/%s/%s", subDir, filename)
+	relativePath = strings.ReplaceAll(relativePath, "\\", "/")
 	return relativePath, nil
+
 }
 
 // generateUniqueFilename generates a unique filename using UUID and timestamp
