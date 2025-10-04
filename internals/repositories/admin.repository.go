@@ -132,6 +132,7 @@ func (ma *MovieAdmin) GetAllMovies(ctx context.Context) ([]models.MovieAdmin, er
             d.name as director_name
         FROM movies m
         LEFT JOIN directors d ON m.directors_id = d.id
+		WHERE m.is_deleted = false
         ORDER BY m.id ASC
 	`
 
