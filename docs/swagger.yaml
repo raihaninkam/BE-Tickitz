@@ -190,7 +190,8 @@ paths:
     patch:
       consumes:
       - multipart/form-data
-      description: Update data film berdasarkan ID dengan upload gambar opsional
+      description: Update data film secara komprehensif berdasarkan ID dengan upload
+        gambar opsional
       parameters:
       - description: Movie ID
         in: path
@@ -220,7 +221,21 @@ paths:
       - description: Rating film
         in: formData
         name: rating
-        type: number
+        type: string
+      - collectionFormat: csv
+        description: Array ID genre
+        in: formData
+        items:
+          type: integer
+        name: genres_id
+        type: array
+      - collectionFormat: csv
+        description: Array ID cast
+        in: formData
+        items:
+          type: integer
+        name: casts_id
+        type: array
       - description: File gambar poster (opsional)
         in: formData
         name: poster_image
@@ -257,14 +272,14 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Update Movie (Admin)
+      summary: Update Movie Comprehensive (Admin)
       tags:
       - Admin-Movies
   /admin/movies/add:
     post:
       consumes:
       - multipart/form-data
-      description: Tambah data movie baru dengan upload gambar
+      description: Tambah data movie baru dengan upload gambar dan jadwal tayang
       parameters:
       - description: Judul film
         in: formData
@@ -295,6 +310,44 @@ paths:
         in: formData
         name: rating
         type: number
+      - description: 'Array ID genre (comma-separated, e.g: 1,2,3)'
+        in: formData
+        name: genres_id
+        required: true
+        type: string
+      - description: 'Array ID cast (comma-separated, e.g: 1,2,3)'
+        in: formData
+        name: casts_id
+        required: true
+        type: string
+      - collectionFormat: multi
+        description: Array tanggal showtime (YYYY-MM-DD)
+        in: formData
+        items:
+          type: string
+        name: showtime_dates[]
+        type: array
+      - collectionFormat: multi
+        description: Array waktu showtime (HH:MM)
+        in: formData
+        items:
+          type: string
+        name: showtime_times[]
+        type: array
+      - collectionFormat: multi
+        description: Array location ID untuk setiap showtime
+        in: formData
+        items:
+          type: integer
+        name: showtime_location_ids[]
+        type: array
+      - collectionFormat: multi
+        description: Array cinema ID untuk setiap showtime
+        in: formData
+        items:
+          type: integer
+        name: showtime_cinema_ids[]
+        type: array
       - description: File gambar poster
         in: formData
         name: poster_image
@@ -308,18 +361,19 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: '{"success": true, "message": "Film berhasil ditambahkan",
+            "data": {...}}'
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: '{"success": false, "error": "error message"}'
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: '{"success": false, "error": "internal server error"}'
           schema:
             additionalProperties:
               type: string

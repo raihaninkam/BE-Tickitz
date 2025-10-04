@@ -66,7 +66,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Tambah data movie baru dengan upload gambar",
+                "description": "Tambah data movie baru dengan upload gambar dan jadwal tayang",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -120,6 +120,60 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
+                        "type": "string",
+                        "description": "Array ID genre (comma-separated, e.g: 1,2,3)",
+                        "name": "genres_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Array ID cast (comma-separated, e.g: 1,2,3)",
+                        "name": "casts_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Array tanggal showtime (YYYY-MM-DD)",
+                        "name": "showtime_dates[]",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Array waktu showtime (HH:MM)",
+                        "name": "showtime_times[]",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Array location ID untuk setiap showtime",
+                        "name": "showtime_location_ids[]",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Array cinema ID untuk setiap showtime",
+                        "name": "showtime_cinema_ids[]",
+                        "in": "formData"
+                    },
+                    {
                         "type": "file",
                         "description": "File gambar poster",
                         "name": "poster_image",
@@ -135,14 +189,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "{\"success\": true, \"message\": \"Film berhasil ditambahkan\", \"data\": {...}}",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "{\"success\": false, \"error\": \"error message\"}",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -151,7 +205,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "{\"success\": false, \"error\": \"internal server error\"}",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -233,7 +287,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update data film berdasarkan ID dengan upload gambar opsional",
+                "description": "Update data film secara komprehensif berdasarkan ID dengan upload gambar opsional",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -243,7 +297,7 @@ const docTemplate = `{
                 "tags": [
                     "Admin-Movies"
                 ],
-                "summary": "Update Movie (Admin)",
+                "summary": "Update Movie Comprehensive (Admin)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -283,9 +337,29 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
-                        "type": "number",
+                        "type": "string",
                         "description": "Rating film",
                         "name": "rating",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Array ID genre",
+                        "name": "genres_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Array ID cast",
+                        "name": "casts_id",
                         "in": "formData"
                     },
                     {

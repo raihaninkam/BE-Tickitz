@@ -16,6 +16,12 @@ import (
 func InitRouter(db *pgxpool.Pool, rdb *redis.Client, hc *pkg.HashConfig) *gin.Engine {
 	router := gin.Default()
 
+	// Serve backgrounds
+	router.Static("/images/backgrounds", "./uploads/backgrounds")
+
+	// Serve posters
+	router.Static("/images/posters", "./uploads/posters")
+
 	router.Use(middlewares.CORSMiddleware)
 
 	InitAuthRouter(router, db)
@@ -26,7 +32,7 @@ func InitRouter(db *pgxpool.Pool, rdb *redis.Client, hc *pkg.HashConfig) *gin.En
 
 	InitProfileRouter(router, db, hc)
 
-	InitAdminMovieRouter(router, db)
+	InitAdminMovieRouter(router, db, rdb)
 
 	docs.SwaggerInfo.BasePath = "/"
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))

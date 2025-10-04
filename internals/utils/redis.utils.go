@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// GetFromCache - generic ambil data slice dari Redis
+// GetFromCache - ambil data slice dari Redis
 func GetFromCache[T any](ctx context.Context, rdb *redis.Client, key string) ([]T, bool) {
 	cmd := rdb.Get(ctx, key)
 	if cmd.Err() == nil {
