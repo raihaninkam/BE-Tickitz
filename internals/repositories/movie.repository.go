@@ -278,7 +278,8 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 		JOIN directors d ON m.directors_id = d.id 
 		LEFT JOIN movies_genre mg ON m.id = mg.movies_id 
 		LEFT JOIN genres g ON mg.genres_id = g.id
-		WHERE m.is_deleted = false`
+		WHERE m.is_deleted = false
+        GROUP BY m.id, d.name`
 
 	// Add WHERE clause if there are conditions
 	if len(whereConditions) > 0 {
