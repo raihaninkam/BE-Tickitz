@@ -44,6 +44,7 @@ func (am *AllMovie) GetAllMovies(ctx context.Context) ([]models.AllMovie, error)
 		JOIN directors d ON m.directors_id = d.id
 		LEFT JOIN movies_genre mg ON m.id = mg.movies_id
 		LEFT JOIN genres g ON mg.genres_id = g.id
+		WHERE m.is_deleted = false
 		GROUP BY m.id, d.name
 		ORDER BY m.id
 	`
@@ -276,7 +277,8 @@ func (mf *MovieFilter) GetMoviesWithFilter(ctx context.Context, title string, ge
 		FROM movies m 
 		JOIN directors d ON m.directors_id = d.id 
 		LEFT JOIN movies_genre mg ON m.id = mg.movies_id 
-		LEFT JOIN genres g ON mg.genres_id = g.id`
+		LEFT JOIN genres g ON mg.genres_id = g.id
+		WHERE m.is_deleted = false`
 
 	// Add WHERE clause if there are conditions
 	if len(whereConditions) > 0 {
