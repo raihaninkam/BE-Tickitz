@@ -16,9 +16,9 @@ import (
 func InitRouter(db *pgxpool.Pool, rdb *redis.Client, hc *pkg.HashConfig) *gin.Engine {
 	router := gin.Default()
 
-	router.Static("/images", "./public/images")
-
 	router.Static("/public", "./public")
+
+	router.Static("/images", "./public/images")
 
 	router.Use(middlewares.CORSMiddleware)
 
