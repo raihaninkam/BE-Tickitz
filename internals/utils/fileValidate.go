@@ -55,7 +55,6 @@ func UploadImageFile(ctx *gin.Context, fieldName, subDir string, config FileUplo
 		return "", fmt.Errorf("file extension %s is not allowed", ext)
 	}
 
-	// UBAH INI: Gunakan ./public/images/ sebagai base path
 	uploadPath := filepath.Join("./public/images", subDir)
 	if err := os.MkdirAll(uploadPath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create upload directory: %v", err)

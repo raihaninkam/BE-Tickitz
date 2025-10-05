@@ -16,7 +16,10 @@ import (
 func InitRouter(db *pgxpool.Pool, rdb *redis.Client, hc *pkg.HashConfig) *gin.Engine {
 	router := gin.Default()
 
-	router.Static("/images", "./public/images")
+	router.Static("/images/posters", "./public/uploads/posters")
+
+	// Untuk akses profil user seperti /public/xxxx.jpg
+	router.Static("/public", "./public")
 
 	router.Use(middlewares.CORSMiddleware)
 
