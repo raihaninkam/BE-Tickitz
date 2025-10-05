@@ -44,7 +44,5 @@ func main() {
 
 	router := routers.InitRouter(db, rdb, hc)
 
-	router.Static("/public", "./public")
-
 	router.Run(":9001")
 }

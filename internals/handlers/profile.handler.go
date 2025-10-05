@@ -69,7 +69,6 @@ func (p *ProfileHandler) GetMyProfile(ctx *gin.Context) {
 // @Success     200 {object} models.Profile
 // @Router      /profile [patch]
 func (h *ProfileHandler) UpdateProfileWithImage(ctx *gin.Context) {
-	//  Ambil user_id dari JWT ctx
 	claimsValue, exists := ctx.Get("claims")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "Token tidak valid"})
@@ -97,21 +96,27 @@ func (h *ProfileHandler) UpdateProfileWithImage(ctx *gin.Context) {
 		ProfilePicture: "",
 	}
 
-	//  Jika ada file gambar
+	// UBAH INI: Simpan ke public/images/profiles
 	if body.Images != nil {
 		ext := filepath.Ext(body.Images.Filename)
 		filename := fmt.Sprintf("%d_profile_%d%s", time.Now().UnixNano(), userID, ext)
-		location := filepath.Join("public", filename)
 
-		if err := os.MkdirAll("public", 0755); err != nil {
-			log.Println("Failed to create public dir:", err.Error())
+		// Ubah path ke public/images/profiles
+		uploadDir := filepath.Join("public", "images", "profiles")
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			log.Println("Failed to create upload dir:", err.Error())
+			ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to create directory"})
+			return
 		}
 
+		location := filepath.Join(uploadDir, filename)
 		if err := ctx.SaveUploadedFile(body.Images, location); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Upload gagal"})
 			return
 		}
-		profileReq.ProfilePicture = filename
+
+		// Simpan relative path
+		profileReq.ProfilePicture = filepath.Join("images", "profiles", filename)
 	}
 
 	profile, err := h.pr.UpdateProfile(ctx.Request.Context(), userID, profileReq)
